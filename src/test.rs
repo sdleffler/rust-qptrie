@@ -84,3 +84,53 @@ fn test_gen() {
     trie3.remove(&"z");
     assert!(trie3.is_empty());
 }
+
+#[test]
+fn test_iterator() {
+    let mut trie = Trie::default();
+
+    for i in 0..4 {
+        for j in 0..256 {
+            trie.insert([i as u8, j as u8], i * 256 + j);
+        }
+    }
+
+    let mut counts = [false; 1024];
+    let mut idx = 0;
+
+    for (_, value) in trie {
+        assert_eq!(value, idx);
+
+        assert!(!counts[value as usize]);
+        counts[value as usize] = true;
+
+        idx += 1;
+    }
+
+    assert!(counts.iter().all(|&b| b));
+}
+
+#[test]
+fn test_iterator_rev() {
+    let mut trie = Trie::default();
+
+    for i in 0..4 {
+        for j in 0..256 {
+            trie.insert([i as u8, j as u8], i * 256 + j);
+        }
+    }
+
+    let mut counts = [false; 1024];
+    let mut idx = 1023;
+
+    for (_, value) in trie.into_iter().rev() {
+        assert_eq!(value, idx);
+
+        assert!(!counts[value as usize]);
+        counts[value as usize] = true;
+
+        idx -= 1;
+    }
+
+    assert!(counts.iter().all(|&b| b));
+}

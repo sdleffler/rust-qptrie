@@ -1,6 +1,7 @@
 use iterator::TriePrefixIterator;
 use node::{Node, InternalNode, LeafNode};
 use sparse_array::SparseArray;
+use std::collections::VecDeque;
 use std::usize;
 
 use std::{cmp, mem};
@@ -22,6 +23,19 @@ impl<TK: PartialEq + AsRef<[u8]>, TV> Default for Trie<TK, TV> {
         }
     }
 }
+
+impl<TK: PartialEq + AsRef<[u8]>, TV> IntoIterator for Trie<TK, TV> {
+    type Item = (TK, TV);
+    type IntoIter = TrieIterator<TK, TV>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self.root {
+            Some(root) => TrieIterator { todo: VecDeque::from(vec![root]) },
+            None => TrieIterator { todo: VecDeque::new() },
+        }
+    }
+}
+
 
 impl<TK: PartialEq + AsRef<[u8]>, TV> Trie<TK, TV> {
     fn nibble(key: &[u8], index: usize) -> usize {
@@ -346,5 +360,48 @@ impl<TK: PartialEq + AsRef<[u8]>, TV> Trie<TK, TV> {
     /// Creates a new iterator over all the nodes whose key includes `prefix` as a prefix.
     pub fn prefix_iter<'t>(&'t self, prefix: &'t TK) -> TriePrefixIterator<TK, TV> {
         TriePrefixIterator::new(self, prefix, false)
+    }
+}
+
+
+/// An iterator over the whole trie, in lexicographical order.
+#[derive(Clone, Debug)]
+pub struct TrieIterator<TK: PartialEq + AsRef<[u8]>, TV> {
+    todo: VecDeque<Node<TK, TV>>,
+}
+
+impl<TK: PartialEq + AsRef<[u8]>, TV> Iterator for TrieIterator<TK, TV> {
+    type Item = (TK, TV);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.todo.pop_front() {
+            Some(Node::Internal(internal)) => {
+                self.todo.extend(internal.nibbles.into_iter());
+                self.next()
+            }
+            Some(Node::Leaf(LeafNode { key, val })) => Some((key, val)),
+            Some(Node::Empty) => self.next(),
+            None => None,
+        }
+    }
+}
+
+impl<TK: PartialEq + AsRef<[u8]>, TV> DoubleEndedIterator for TrieIterator<TK, TV> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self.todo.pop_back() {
+            Some(Node::Internal(internal)) => {
+                // Equivalent to `self.todo.extend_front(..)` because `VecDeque::extend_front`
+                // isn't a thing. Also, `VecDeque::extend` is literally just `for elt in iter {
+                // self.push_back(elt); }`.
+                for elt in internal.nibbles.into_iter().rev() {
+                    self.todo.push_front(elt);
+                }
+
+                self.next_back()
+            }
+            Some(Node::Leaf(LeafNode { key, val})) => Some((key, val)),
+            Some(Node::Empty) => self.next_back(),
+            None => None,
+        }
     }
 }

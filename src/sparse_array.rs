@@ -15,6 +15,15 @@ impl<TI> Default for SparseArray<TI> {
     }
 }
 
+impl<TI> IntoIterator for SparseArray<TI> {
+    type Item = TI;
+    type IntoIter = ::std::vec::IntoIter<TI>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.array.into_iter()
+    }
+}
+
 impl<TI> SparseArray<TI> {
     pub fn new() -> Self {
         Self::default()
